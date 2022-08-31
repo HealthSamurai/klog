@@ -1,0 +1,32 @@
+{:paths       ["src"]
+ :deps        {cheshire/cheshire            {:mvn/version "5.11.0"}
+               http-kit/http-kit            {:mvn/version "2.6.0"}
+               org.clojure/java.jdbc        {:mvn/version "0.7.12"}
+               healthsamurai/matcho                    {:mvn/version "0.3.9"}
+               com.taoensso/nippy                      {:mvn/version "3.2.0"}}
+
+ :aliases
+ {:test
+  {:extra-paths  ["test"]
+   :extra-deps   {healthsamurai/matcho {:mvn/version "0.3.9"}
+                  lambdaisland/kaocha  {:mvn/version "1.69.1069"}}
+   :jvm-opts     ["-XX:-OmitStackTraceInFastThrow"]
+   :main-opts    ["-m" "kaocha.runner" "--config-file" "test/test.edn"]}
+
+  :nrepl
+  {:extra-paths  ["dev" "test"]
+   :extra-deps   {nrepl/nrepl       {:mvn/version "1.0.0"}
+                  cider/cider-nrepl {:mvn/version "0.28.5"}}
+   :jvm-opts     ["-XX:-OmitStackTraceInFastThrow"]
+   :main-opts    ["-m" "nrepl.cmdline"
+                  "-b" "0.0.0.0"
+                  "--middleware"
+                  "[cider.nrepl/cider-middleware]"]}
+
+  :lint
+  {:extra-deps   {clj-kondo/clj-kondo {:mvn/version "2022.08.03"}}
+   :main-opts    ["-m" "clj-kondo.main"]}
+
+  :fmt
+  {:replace-deps {mvxcvi/cljstyle {:mvn/version "0.15.0"}}
+   :main-opts    ["-m" "cljstyle.main"]}}}

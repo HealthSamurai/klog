@@ -1,0 +1,30 @@
+{:tasks {:init    (do
+                    (def ansi-green "\u001B[32m") (def ansi-reset "\u001B[0m") (def ansi-yellow "\u001B[33m")
+                    (defn current-date
+                      []
+                      (let [date (java.time.LocalDateTime/now)
+                            formatter (java.time.format.DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss")]
+                        (.format date formatter))))
+
+         :enter   (let [{:keys [name]} (current-task)] (println (clojure.core/format "%s[ ] %s %s%s" ansi-yellow name (current-date) ansi-reset)))
+         :leave   (let [{:keys [name]} (current-task)] (println (clojure.core/format "%s[✔]︎ %s %s%s" ansi-green name (current-date) ansi-reset)))
+
+         repl     {:doc  "Run Clojure repl for Emacs with cider"
+                   :task (do
+                           (shell "rm -rf .cpcache ||")
+                           (clojure "-M:nrepl"))}
+
+         test     {:doc  "Run tests"
+                   :task (clojure "-M:test")}
+
+         lint     {:doc  "Lint source code"
+                   :task (clojure "-M:lint --parallel --lint src:test --progress --fail-level error")}
+
+         fmt      {:doc  "Check source code formatting"
+                   :task (clojure "-M:fmt check src")}
+
+         fmt-fix  {:doc  "Fix source code formatting"
+                   :task (clojure "-M:fmt fix src")}
+
+         outdated {:doc  "Check outdated libraries"
+                   :task (clojure "-Sdeps '{:deps {com.github.liquidz/antq {:mvn/version \"RELEASE\"}}}' -M -m antq.core")}}}

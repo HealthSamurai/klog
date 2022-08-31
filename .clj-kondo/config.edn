@@ -1,0 +1,12 @@
+{:lint-as       {}
+ :ns-groups     [{:pattern "^.*-test$" :name tests}]
+ :skip-comments true
+ :config-in-ns  {tests                        {:linters {:inline-def {:level :off}}}}
+ :linters       {:not-empty? {:level :off}
+                 :inline-def {:level :off}
+                 :duplicate-require {:level :error}
+                 :unresolved-namespace {:level :error}
+                 :missing-else-branch {:level :off}  ;;TODO: enable later
+                 :non-arg-vec-return-type-hint {:level :off}
+                 :unused-private-var {:level :off}}         ;;TODO: enable later
+ :output        {:show-rule-name-in-message true}}
