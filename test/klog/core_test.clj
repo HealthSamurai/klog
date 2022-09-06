@@ -36,7 +36,38 @@
       (t)
 
       (alter-var-root #'sut/*enable* (constantly logs-enable-state))
-      (reset! sut/appenders appenders))))
+      (reset! sut/appenders appenders)
+      (sut/clear-context))))
+
+(deftest test-threadlocal-vars
+  (testing "-context"
+    (sut/set-context {:foo "bar"})
+    (matcho/match
+     (sut/mk-log :event {:url "/hello"})
+     {:foo "bar"
+      :url "/hello"}))
+  (testing "-ctx"
+    (sut/set-ctx "my-ctx-id")
+    (matcho/match
+     (sut/mk-log :event {:url "/hello"})
+     {:foo "bar"
+      :url "/hello"
+      :ctx "my-ctx-id"}))
+  (testing "-tn & -op"
+    (sut/set-tn "my-tn")
+    (sut/set-op "GET /hello")
+    (matcho/match
+     (sut/mk-log :event {:url "/hello"})
+     {:foo "bar"
+      :url "/hello"
+      :ctx "my-ctx-id"
+      :op "GET /hello"
+      :tn "my-tn"}))
+
+  (sut/clear-context)
+  (sut/clear-ctx)
+  (sut/clear-op)
+  (sut/clear-tn))
 
 
 (deftest ^:slow error-in-lazy-log-message

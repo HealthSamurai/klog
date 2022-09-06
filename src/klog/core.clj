@@ -103,6 +103,26 @@
   (.set ^ThreadLocal -ctx nil))
 
 
+(def -context (ThreadLocal.))
+
+
+(defn set-context
+  "Set local log context map
+  (set-context {:foo bar :tar mar})"
+  [v]
+  (.set ^ThreadLocal -context v))
+
+
+(defn get-context
+  []
+  (.get ^ThreadLocal -context))
+
+
+(defn clear-context
+  []
+  (.set ^ThreadLocal -context nil))
+
+
 (def -tn (ThreadLocal.))
 
 
@@ -121,12 +141,14 @@
   (let [i   (format-date (Date.))
         w   (.getName (Thread/currentThread))
         tn  (.get ^ThreadLocal  -tn)
-        ctx (.get ^ThreadLocal -ctx)
         op  (.get ^ThreadLocal -op)
+        ctx     (get-ctx)
+        context (get-context)
         log (cond-> (assoc arg :ts i :w w :ev ev)
               tn  (assoc :tn tn)
               ctx (assoc :ctx ctx)
-              op  (assoc :op op))]
+              op  (assoc :op op)
+              context (merge context))]
     log))
 
 
