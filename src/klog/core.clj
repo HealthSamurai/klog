@@ -319,6 +319,17 @@
    (let [_ctx (atom nil)]
      (add-appender :pretty-stdout lvl pretty-appender))))
 
+(defn pretty-appender-regexp
+  [regexp]
+  (fn [l]
+    (let [line (format-line l)]
+      (when (re-find regexp line)
+        (println line)))))
+
+(defn stdout-pretty-appender-regexp
+  [regexp]
+  (add-appender :pretty-stdout :all (pretty-appender-regexp regexp)))
+
 
 (defn gz-writer
   [pth]
