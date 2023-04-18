@@ -178,9 +178,6 @@
       (when (<= lvl-num appender-lvl-num)
         (f l)))))
 
-(defn remove-appender [appender-id]
-  (swap! appenders dissoc appender-id))
-
 (defn add-appender
   ([k f]
    (add-appender k :all f))
@@ -196,6 +193,7 @@
 
 
 (defn rm-appender
+  "Removes given appender."
   [k]
   (swap! appenders dissoc k))
 
