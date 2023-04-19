@@ -536,7 +536,6 @@
                        :post (cond-> {:headers {"Content-Type" "application/x-ndjson"}}
                                (:es-auth cfg) (assoc :basic-auth (:es-auth cfg)))
                        :date-fmt (DateTimeFormatter/ofPattern ^String (:index-pat cfg))))
-        _ (println ::es-appender cfg)
         state         (atom (es-default-state cfg))]
     (add-appender appender-id (:lvl cfg) log-es-message state)))
 
