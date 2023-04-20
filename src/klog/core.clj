@@ -179,6 +179,8 @@
         (f l)))))
 
 (defn add-appender
+  ([{:keys [id f state transform]}]
+   (swap! appenders assoc id {:log f :state state :transform transform}))
   ([k f]
    (add-appender k :all f))
   ([k lvl f]
@@ -375,10 +377,11 @@
 
 (defn emit
   [_ {_ts :ts _ns :ns _ev :ev :as l}]
-  (doseq [{f :log s :state} (vals @appenders)]
-    (if s
-      (f s l)
-      (f l))))
+  (doseq [{f :log s :state xs :transform} (vals @appenders)]
+    (when-let [l' (if xs (xs l) l)]
+      (if s
+        (f s l')
+        (f l')))))
 
 
 (defn log
@@ -391,9 +394,7 @@
 (set-error-handler!
   publisher
   (fn [_agent err]
-    (println ::internal-error)
-    (log ::internal-error {:err (.getMessage err)
-                           :etr  (with-out-str (stacktrace/print-stack-trace err))})))
+    (println ::internal-error err)))
 
 
 (defn err-msg
@@ -537,7 +538,10 @@
                                (:es-auth cfg) (assoc :basic-auth (:es-auth cfg)))
                        :date-fmt (DateTimeFormatter/ofPattern ^String (:index-pat cfg))))
         state         (atom (es-default-state cfg))]
-    (add-appender appender-id (:lvl cfg) log-es-message state)))
+    (add-appender {:id        appender-id
+                   :f         log-es-message
+                   :state     state
+                   :transform (:transform arg)})))
 
 
 (defn dd-appender
