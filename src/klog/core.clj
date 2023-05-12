@@ -4,7 +4,6 @@
     [clojure.java.io :as io]
     [clojure.stacktrace :as stacktrace]
     [clojure.string :as str]
-    [clojure.stacktrace]
     [klog.devlog]
     [klog.loki]
     [klog.obscure]
@@ -392,7 +391,7 @@
     nil))
 
 (defn log-ex [e]
-  (let [stacktrace (with-out-str (clojure.stacktrace/print-stack-trace e))]
+  (let [stacktrace (with-out-str (stacktrace/print-stack-trace e))]
     (log :w/ex (cond-> {:msg stacktrace :lvl :error} stacktrace (assoc :etr stacktrace)))))
 
 (set-error-handler!
