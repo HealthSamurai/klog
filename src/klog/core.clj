@@ -37,18 +37,10 @@
   [^Date x]
   (str (.format ^SimpleDateFormat fmt x)))
 
-
 (defonce ^:dynamic *enable* (if (System/getenv "KLOG_DISABLE") false true))
 
-
-(defn enable-log
-  []
-  (alter-var-root #'*enable* (constantly true)))
-
-
-(defn disable-log
-  []
-  (alter-var-root #'*enable* (constantly false)))
+(defn enable-log  [] (alter-var-root #'*enable* (constantly true)))
+(defn disable-log [] (alter-var-root #'*enable* (constantly false)))
 
 
 (defonce ^:dynamic *warn-unknown-event* false) ; TODO: add option to enable
@@ -340,7 +332,6 @@
   ([lvl obscure-url]
    (let [cl (klog.obscure/connection obscure-url)]
      (add-appender :obscure lvl (fn [l] (klog.obscure/send-data cl l))))))
-
 
 (defn devlog-appender
   ([db]
