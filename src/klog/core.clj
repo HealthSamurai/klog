@@ -60,72 +60,30 @@
 ;; nicola: Looks like it's better to pass ctx into logs - but we have to refactor all log calls
 
 (def -op (ThreadLocal.))
-
-
-(defn set-op
-  [x]
-  (.set ^ThreadLocal -op x))
-
-
-(defn get-op
-  []
-  (.get ^ThreadLocal -op))
-
-
-(defn clear-op
-  []
-  (.set ^ThreadLocal -op nil))
-
+(defn set-op [x] (.set ^ThreadLocal -op x))
+(defn get-op [] (.get ^ThreadLocal -op))
+(defn clear-op [] (.set ^ThreadLocal -op nil))
 
 (def -ctx (ThreadLocal.))
-
-
-(defn set-ctx
-  [v]
-  (.set ^ThreadLocal -ctx v))
-
-
-(defn get-ctx
-  []
-  (.get ^ThreadLocal -ctx))
-
-
-(defn clear-ctx
-  []
-  (.set ^ThreadLocal -ctx nil))
+(defn set-ctx [v] (.set ^ThreadLocal -ctx v))
+(defn get-ctx [] (.get ^ThreadLocal -ctx))
+(defn clear-ctx [] (.set ^ThreadLocal -ctx nil))
 
 
 (def -context (ThreadLocal.))
 
-
 (defn set-context
   "Set local log context map
   (set-context {:foo bar :tar mar})"
-  [v]
-  (.set ^ThreadLocal -context v))
+  [v] (.set ^ThreadLocal -context v))
 
-
-(defn get-context
-  []
-  (.get ^ThreadLocal -context))
-
-
-(defn clear-context
-  []
-  (.set ^ThreadLocal -context nil))
+(defn get-context [] (.get ^ThreadLocal -context))
+(defn clear-context [] (.set ^ThreadLocal -context nil))
 
 
 (def -tn (ThreadLocal.))
-
-
-(defn set-tn
-  [v]
-  (.set ^ThreadLocal -tn v))
-
-
-(defn clear-tn
-  []
-  (.set ^ThreadLocal -tn nil))
+(defn set-tn [v] (.set ^ThreadLocal -tn v))
+(defn clear-tn [] (.set ^ThreadLocal -tn nil))
 
 
 (defn mk-log
@@ -146,11 +104,7 @@
 
 (defonce appenders (atom {}))
 
-
-(defn clear-appenders
-  []
-  (reset! appenders {}))
-
+(defn clear-appenders [] (reset! appenders {}))
 
 (def level-priorities
   {:off 0
@@ -161,7 +115,6 @@
    :debug 500
    :trace 600
    :all Integer/MAX_VALUE})
-
 
 (defn filter-log-by-lvl
   [appender-lvl-num f]
