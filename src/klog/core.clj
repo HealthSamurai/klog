@@ -210,41 +210,15 @@
       (println "ERROR while logging" e))))
 
 
-(defn stdout-appender
-  ([]
-   (stdout-appender :all))
-  ([lvl]
-   (add-appender :stdout lvl (fn [l] (println (cheshire.core/generate-string l))))))
+(defn stdout-appender [& [lvl]]
+  (add-appender :stdout (or lvl :all) (fn [l] (println (cheshire.core/generate-string l)))))
 
-
-(defn green
-  [x]
-  (str "\033[0;32m" x "\033[0m"))
-
-
-(defn gray
-  [x]
-  (str "\033[0;37m" x "\033[0m"))
-
-
-(defn yellow
-  [x]
-  (str "\033[0;33m" x "\033[0m"))
-
-
-(defn white
-  [x]
-  (str "\033[0;97m" x "\033[0m"))
-
-
-(defn cyan
-  [x]
-  (str "\033[0;36m" x "\033[0m"))
-
-
-(defn red
-  [x]
-  (str "\033[0;31m" x "\033[0m"))
+(defn green  [x] (str "\033[0;32m" x "\033[0m"))
+(defn gray   [x] (str "\033[0;37m" x "\033[0m"))
+(defn yellow [x] (str "\033[0;33m" x "\033[0m"))
+(defn white  [x] (str "\033[0;97m" x "\033[0m"))
+(defn cyan   [x] (str "\033[0;36m" x "\033[0m"))
+(defn red    [x] (str "\033[0;31m" x "\033[0m"))
 
 
 (defn format-line
@@ -413,29 +387,11 @@
                  :etr (pr-str e))))
 
 
-(defn error
-  [ev arg]
-  (log ev (assoc arg :lvl :error)))
-
-
-(defn warn
-  [ev arg]
-  (log ev (assoc arg :lvl :warn)))
-
-
-(defn info
-  [ev arg]
-  (log ev (assoc arg :lvl :info)))
-
-
-(defn debug
-  [ev arg]
-  (log ev (assoc arg :lvl :debug)))
-
-
-(defn trace
-  [ev arg]
-  (log ev (assoc arg :lvl :trace)))
+(defn error [ev arg] (log ev (assoc arg :lvl :error)))
+(defn warn  [ev arg] (log ev (assoc arg :lvl :warn)))
+(defn info  [ev arg] (log ev (assoc arg :lvl :info)))
+(defn debug [ev arg] (log ev (assoc arg :lvl :debug)))
+(defn trace [ev arg] (log ev (assoc arg :lvl :trace)))
 
 
 (defn parse-int
