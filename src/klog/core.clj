@@ -21,8 +21,8 @@
       DateTimeFormatter)
     (java.util
       Date
-      TimeZone)))
-
+      TimeZone))
+  (:refer-clojure :exclude [flush]))
 
 ;; (set! *warn-on-reflection* true)
 
@@ -124,8 +124,8 @@
         (f l)))))
 
 (defn add-appender
-  ([{:keys [id f state transform]}]
-   (swap! appenders assoc id {:log f :state state :transform transform}))
+  ([{:keys [id f flush state transform]}]
+   (swap! appenders assoc id {:log f :state state :transform transform :flush flush}))
   ([k f]
    (add-appender k :all f))
   ([k lvl f]
@@ -301,6 +301,32 @@
         (f s l')
         (f l')))))
 
+(defn flush [& [timeout-ms]]
+  (if timeout-ms
+    (await-for timeout-ms publisher)
+    (await publisher))
+  (doall
+   (for [[id appender] @appenders
+         :let [flush-fn (:flush appender)]]
+     (if (some? flush-fn)
+       {:id id :result (if-let [state (:state appender)] (flush-fn state) (flush-fn))}
+       {:id id :result :no-flush-fn}))))
+
+(defonce shutdown-hook (new Thread flush))
+
+(try
+  (.addShutdownHook (Runtime/getRuntime) shutdown-hook)
+  (catch java.lang.IllegalArgumentException e
+    (when (not= "Hook previously registered" (.getMessage e))
+      (throw e))))
+
+(comment
+  (System/exit 2)
+
+  (.halt
+   (Runtime/getRuntime) 2)
+
+  )
 
 (defn log
   [ev arg]
@@ -389,45 +415,50 @@
      :cfg cfg}))
 
 
+(defn flush-es-logs [*state]
+  (locking *state
+    (if (not-empty (:batch @*state))
+      (let [{^StringBuilder b :batch
+             i :i
+             {post-params :post url :url :as cfg} :cfg} @*state]
+        (try
+          (let [start (System/currentTimeMillis)
+                cb (fn [res]
+                     (if-let [err (:error res)]
+                       (let [err-msg (.getMessage err)]
+                         (println ::es-batch-error err-msg)
+                         (swap! *state assoc :error err-msg))
+                       (if-let [s (:status res)]
+                         (if (> s 300)
+                           (do
+                             (println ::es-batch-error s (:body res))
+                             (swap! *state assoc :error res))
+                           (let [status {:msgs i :d (- (System/currentTimeMillis) start)}]
+                             (swap! *state (fn [x] (-> x (dissoc :error) (assoc :status status))))
+                             (println (str ::es-batch-sent " " status))))
+                         (println ::es-batch-unexpected res))))]
+            (cb @(http/post url (assoc post-params :body (.toString b)))))
+          (catch Exception e
+            (println ::es-batch-error (.getMessage e))))
+        (reset! *state (es-default-state cfg))
+        :flushed)
+      :flush-ignored)))
+
 (defn log-es-message
-  [state l]
+  [*state l]
   (let [{^StringBuilder b :batch
          i :i
          start-time :start-time
          index :index
          {batch-size :batch-size
-          batch-timeout :batch-timeout
-          post-params :post
-          url :url
-          :as cfg} :cfg} @state]
+          batch-timeout :batch-timeout} :cfg} @*state]
     (.append b index)
     (.append b (json/generate-string (assoc l "@timestamp" (:ts l))))
     (.append b "\n")
-    (swap! state (fn [s] (update s :i inc)))
+    (swap! *state (fn [s] (update s :i inc)))
     (when (or (<= batch-size (inc i))
               (< batch-timeout (- (System/currentTimeMillis) start-time)))
-      (try
-        (let [start (System/currentTimeMillis)]
-          (http/post url
-                     (assoc post-params :body (.toString b))
-                     (fn [res]
-                       (if-let [err (:error res)]
-                         (let [err-msg (.getMessage err)]
-                           (println ::es-batch-error err-msg)
-                           (swap! state assoc :error err-msg))
-                         (if-let [s (:status res)]
-                           (if (> s 300)
-                             (do
-                               (println ::es-batch-error s (:body res))
-                               (swap! state assoc :error res))
-                             (let [status {:msgs i :d (- (System/currentTimeMillis) start)}]
-                               (swap! state (fn [x] (-> x (dissoc :error) (assoc :status status))))
-                               (println (str ::es-batch-sent " " status))))
-                           (println ::es-batch-unexpected res))))))
-        (catch Exception e
-          (println ::es-batch-error (.getMessage e))))
-      (reset! state (es-default-state cfg)))))
-
+      (flush-es-logs *state))))
 
 (defn es-appender
   [arg]
@@ -443,6 +474,7 @@
         state         (atom (es-default-state cfg))]
     (add-appender {:id        appender-id
                    :f         log-es-message
+                   :flush     flush-es-logs
                    :state     state
                    :transform (:transform arg)})))
 

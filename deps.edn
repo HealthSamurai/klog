@@ -16,7 +16,7 @@
   :nrepl
   {:extra-paths  ["dev" "test"]
    :extra-deps   {nrepl/nrepl       {:mvn/version "1.0.0"}
-                  cider/cider-nrepl {:mvn/version "0.28.5"}}
+                  cider/cider-nrepl {:mvn/version "LATEST"}}
    :jvm-opts     ["-XX:-OmitStackTraceInFastThrow"]
    :main-opts    ["-m" "nrepl.cmdline"
                   "-b" "0.0.0.0"
