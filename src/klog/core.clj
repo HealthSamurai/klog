@@ -374,9 +374,7 @@
   [pth cont]
   (spit pth cont :append true))
 
-
-(def ^:const hour 3600000)
-
+(def ^:const minute 60000)
 
 (defn clear-nils
   [m]
@@ -391,7 +389,7 @@
    :appender-id        :es
    :index-pat          "'aidbox-logs'-yyyy-MM-dd"
    :batch-size         200
-   :batch-timeout      hour
+   :batch-timeout      minute
    :fallback-max-lines 10000})
 
 
@@ -501,7 +499,7 @@
          :or   {lvl                :all
                 appender-id        :dd
                 batch-size         200
-                batch-timeout      hour}}
+                batch-timeout      minute}}
         (apply dissoc arg (for [[k v] arg :when (nil? v)] k))
 
         batch-size         (parse-int batch-size)
@@ -586,7 +584,7 @@
            index-pat batch-size batch-timeout]}]
   (let [index-pat     (or index-pat "'devbox-logs'-yyyy-MM-dd")
         batch-size    (or (parse-int batch-size) 200)
-        batch-timeout (or (parse-int batch-timeout) hour)
+        batch-timeout (or (parse-int batch-timeout) minute)
 
         post-params {:headers {"Content-Type" "application/x-ndjson"
                                "x-license"    (str "Bearer " license-token)}}
