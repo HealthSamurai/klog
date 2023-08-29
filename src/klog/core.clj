@@ -192,7 +192,12 @@
                 ;; :cacheFillBytes nil
                 })
         (= :w/resp (:ev l))
-        (dissoc :w_m :w_url :w_st :w_user_agent :w_ip :w_referer :d))))
+        (dissoc :w_m :w_url :w_st :w_user_agent :w_ip :w_referer :d)
+
+        (some? (:ctx l))
+        (assoc-in [:operation :id] (:ctx l))
+        (some? (:ctx l))
+        (dissoc :ctx))))
 
 (defn stdout-google-appender [& [lvl]]
   (add-appender

@@ -298,6 +298,8 @@
      (let [google-format-log (sut/->google-format l)]
        (swap! *logs conj google-format-log))))
 
+  (sut/set-ctx "my-ctx")
+
   (sut/info :test {:msg "hello"})
 
   (sut/log :test {:msg "hello"})
@@ -315,7 +317,8 @@
 
   (matcho/match @*logs
     [{:severity "INFO"
-      :timestamp string?}
+      :timestamp string?
+      :operation {:id "my-ctx"}}
      {:severity "INFO"}
      {:severity "INFO"
       :httpRequest {:requestMethod "GET"
