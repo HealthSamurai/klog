@@ -155,6 +155,52 @@
       (println "ERROR while logging" e))))
 
 
+(defn millis->protobuf-duration [ms]
+  (when ms
+    (str (/ ms 1000.) "s")))
+
+(defn ->google-format [l]
+  (-> l
+      (assoc :severity (str/upper-case (name (:lvl l :info))))
+      (dissoc :lvl)
+      (assoc :timestamp (:ts l))
+      (dissoc :ts)
+      (cond->
+        (= :w/resp (:ev l))
+        (assoc :httpRequest
+               {:requestMethod (when (:w_m l) (str/upper-case (name (:w_m l))))
+                :requestUrl (:w_url l)
+                :requestSize nil
+                :status (:w_st l)
+
+                ;; we don't have body size in proto.box/handle-to-ctx
+                ;; :responseSize nil ;; ignored
+
+                :userAgent (:w_user_agent l)
+                :remoteIp (:w_ip l)
+                ;; :serverIp (:w_server_id l) ;; FIXME: deal with slash in the begging
+                :referer (:w_referer l)
+                :latency (millis->protobuf-duration (:d l))
+
+                ;; seems like httpkit doesn't provide protocol version. See https://chat.openai.com/share/3ad018e3-fa5b-4f59-8dbc-0e3811678c8f
+                ;; :protocol nil ;; ignored
+
+                ;; We don't cache
+                ;; :cacheLookup nil
+                ;; :cacheHit nil
+                ;; :cacheValidatedWithOriginServer nil
+                ;; :cacheFillBytes nil
+                })
+        (= :w/resp (:ev l))
+        (dissoc :w_m :w_url :w_st :w_user_agent :w_ip :w_referer :d))))
+
+(defn stdout-google-appender [& [lvl]]
+  (add-appender
+   :google-format-stdout (or lvl :all)
+   (fn [l]
+     (let [google-format-log (->google-format l)]
+       (println (cheshire.core/generate-string google-format-log))))))
+
 (defn stdout-appender [& [lvl]]
   (add-appender :stdout (or lvl :all) (fn [l] (println (cheshire.core/generate-string l)))))
 

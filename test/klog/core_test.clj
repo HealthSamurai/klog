@@ -283,3 +283,46 @@
                              :bname "test"
                              :lid   "License-1"}
                             nil?]})))
+
+(deftest stdout-google-appender-test
+
+  (sut/clear-appenders)
+
+  (sut/stdout-google-appender :info)
+
+  (def *logs (atom []))
+
+  (sut/add-appender
+   :google-format-stdout :all
+   (fn [l]
+     (let [google-format-log (sut/->google-format l)]
+       (swap! *logs conj google-format-log))))
+
+  (sut/info :test {:msg "hello"})
+
+  (sut/log :test {:msg "hello"})
+
+  (sut/log :w/resp
+           {:w_m :get
+            :w_url "/fhir/Patient"
+            :w_st 200
+            :w_user_agent "Mozilla/4.0 (compatible; MSIE 6.0; Windows 98; Q312461; .NET CLR 1.0.3705)"
+            :d 1500
+            :w_referer "10.70.1.2"
+            :w_ip "172.10.192.3"})
+
+  (await sut/publisher)
+
+  (matcho/match @*logs
+    [{:severity "INFO"
+      :timestamp string?}
+     {:severity "INFO"}
+     {:severity "INFO"
+      :httpRequest {:requestMethod "GET"
+                    :requestUrl "/fhir/Patient"
+                    :status 200
+
+                    :userAgent "Mozilla/4.0 (compatible; MSIE 6.0; Windows 98; Q312461; .NET CLR 1.0.3705)"
+                    :remoteIp "172.10.192.3"
+                    :referer "10.70.1.2"
+                    :latency "1.5s"}}]))
