@@ -223,39 +223,41 @@
 
 (defn ->otel-format [l]
   (let [ts-nano (* (:timeUnix l) 1000 1000)
+        trace-id (get l :ctx)
         severity (str/upper-case (name (:lvl l :info)))
         severity-number (get {"TRACE" 1 "DEBUG" 5 "INFO" 9 "WARN" 13 "ERROR" 17 "FATAL" 21} severity)
-        log-body (cond-> (dissoc l :ev :lvl :timeUnix :ts)
+        log-body (cond-> (dissoc l :ev :lvl :timeUnix :ts :ctx)
                    (= :error severity)
                    (dissoc :msg :ex/type :etr))]
-    {:timeUnixNano ts-nano
-     :observedTimeUnixNano ts-nano
-     :severityText (when (some? severity-number) severity)
-     :severityNumber severity-number
+    (cond-> {:timeUnixNano ts-nano
+             :observedTimeUnixNano ts-nano
+             :severityText (when (some? severity-number) severity)
+             :severityNumber severity-number
+             ;; :spanId "EEE19B7EC3C1B174",
 
-     ;; :traceId "5B8EFFF798038103D269B633813FC60C",
-     ;; :spanId "EEE19B7EC3C1B174",
+             :body (obj->proto3 log-body)
 
-     :body (obj->proto3 log-body)
+             ;; :resource nil
 
-     ;; :resource nil
+             :attributes
+             (keep identity
+                   [ ;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/general/
+                    (when (:ev/id l) {:key "log.record.uid" :value {:stringValue (:ev/id l)}})
 
-     :attributes
-     (keep identity
-           [;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/general/
-            (when (:ev/id l) {:key "log.record.uid" :value {:stringValue (:ev/id l)}})
+                    ;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/events/
+                    (when (:ev l) {:key "event.name" :value {:stringValue (name (:ev l))}})
+                    {:key "event.domain" :value {:stringValue (or (:ev/domain l) "aidbox")}}
 
-            ;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/events/
-            (when (:ev l) {:key "event.name" :value {:stringValue (name (:ev l))}})
-            {:key "event.domain" :value {:stringValue (or (:ev/domain l) "aidbox")}}
+                    ;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/exceptions/
+                    (when (and (= :error severity) (:msg l))
+                      {:key "exception.message" :value {:stringValue (:msg l)}})
+                    (when (:etr l)
+                      {:key "exception.stacktrace" :value {:stringValue (:etr l)}})
+                    (when (:ex/type l)
+                      {:key "exception.type" :value {:stringValue (:ex/type l)}})])}
 
-            ;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/exceptions/
-            (when (and (= :error severity) (:msg l))
-              {:key "exception.message" :value {:stringValue (:msg l)}})
-            (when (:etr l)
-              {:key "exception.stacktrace" :value {:stringValue (:etr l)}})
-            (when (:ex/type l)
-              {:key "exception.type" :value {:stringValue (:ex/type l)}})])}))
+      trace-id
+      (assoc :traceId trace-id))))
 
 
 (defn add-otel-appender [cfg]
