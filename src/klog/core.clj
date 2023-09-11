@@ -89,12 +89,13 @@
 (defn mk-log
   [ev arg]
   (let [i   (format-date (Date.))
+        timeUnix (System/currentTimeMillis)
         w   (.getName (Thread/currentThread))
         tn  (.get ^ThreadLocal  -tn)
         op  (.get ^ThreadLocal -op)
         ctx     (get-ctx)
         context (get-context)
-        log (cond-> (assoc arg :ts i :w w :ev ev)
+        log (cond-> (assoc arg :timeUnix timeUnix :ts i :w w :ev ev)
               tn  (assoc :tn tn)
               ctx (assoc :ctx ctx)
               op  (assoc :op op)
@@ -208,6 +209,75 @@
 
 (defn stdout-appender [& [lvl]]
   (add-appender :stdout (or lvl :all) (fn [l] (println (cheshire.core/generate-string l)))))
+
+
+(defn obj->proto3 [o]
+  (cond
+    (or (keyword? o) (string? o)) {:stringValue (name o)}
+    (int? o) {:intValue o}
+    (float? o) {:doubleValue o}
+    (boolean? o) {:boolValue o}
+    (map? o) {:kvlistValue {:values (mapv (fn [[k v]] {:key (name k) :value (obj->proto3 v)}) o)}}
+    (coll? o) {:arrayValue {:values (mapv obj->proto3 o)}}
+    :else {:stringValue (str o)}))
+
+(defn ->otel-format [l]
+  (let [ts-nano (* (:timeUnix l) 1000 1000)
+        severity (str/upper-case (name (:lvl l :info)))
+        severity-number (get {"TRACE" 1 "DEBUG" 5 "INFO" 9 "WARN" 13 "ERROR" 17 "FATAL" 21} severity)
+        log-body (cond-> (dissoc l :ev :lvl :timeUnix :ts)
+                   (= :error severity)
+                   (dissoc :msg :ex/type :etr))]
+    {:timeUnixNano ts-nano
+     :observedTimeUnixNano ts-nano
+     :severityText (when (some? severity-number) severity)
+     :severityNumber severity-number
+
+     ;; :traceId "5B8EFFF798038103D269B633813FC60C",
+     ;; :spanId "EEE19B7EC3C1B174",
+
+     :body (obj->proto3 log-body)
+
+     ;; :resource nil
+
+     :attributes
+     (keep identity
+           [;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/general/
+            (when (:ev/id l) {:key "log.record.uid" :value {:stringValue (:ev/id l)}})
+
+            ;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/events/
+            (when (:ev l) {:key "event.name" :value {:stringValue (name (:ev l))}})
+            {:key "event.domain" :value {:stringValue (or (:ev/domain l) "aidbox")}}
+
+            ;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/exceptions/
+            (when (and (= :error severity) (:msg l))
+              {:key "exception.message" :value {:stringValue (:msg l)}})
+            (when (:etr l)
+              {:key "exception.stacktrace" :value {:stringValue (:etr l)}})
+            (when (:ex/type l)
+              {:key "exception.type" :value {:stringValue (:ex/type l)}})])}))
+
+
+(defn add-otel-appender [cfg]
+  (add-appender
+   :otel
+   :all
+   (fn [l]
+     (let [
+           batch {:resourceLogs [{:resource
+                                  {:attributes
+                                   [{:key "service.name", :value {:stringValue "Aidbox"}}
+                                    #_{:key "service.runtime-id", :value {:stringValue "<runtime-id>"}}]}
+                                  :scopeLogs
+                                  [{:scope {}
+                                    :logRecords [(->otel-format l)]}]}]}
+           post-params {:headers {"content-type" "application/json"}}]
+       (try
+         (let [resp @(http/post (str (:url cfg) "/v1/logs") (assoc post-params :body (json/generate-string batch)))]
+           resp)
+         (catch Exception e
+           (println "ERROR:" e)))))))
+
 
 (defn green  [x] (str "\033[0;32m" x "\033[0m"))
 (defn gray   [x] (str "\033[0;37m" x "\033[0m"))
@@ -399,14 +469,17 @@
   [e]
   (when e (.getMessage ^Exception e)))
 
-
-(defn exeption
+(defn exception
   [ev e & [args]]
   (log ev (assoc (or args {})
                  :lvl :error
+                 :ex/type (type e)
                  :msg (err-msg e)
-                 :etr (pr-str e))))
+                 :etr (with-out-str (stacktrace/print-stack-trace e)))))
 
+(defn exeption [& args]
+  (println "WARN: Deprecated exeption. Use exception")
+  (apply exception args))
 
 (defn error [ev arg] (log ev (assoc arg :lvl :error)))
 (defn warn  [ev arg] (log ev (assoc arg :lvl :warn)))
