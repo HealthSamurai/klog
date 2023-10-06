@@ -265,18 +265,16 @@
    :otel
    :all
    (fn [l]
-     (let [
-           batch {:resourceLogs [{:resource
+     (let [batch {:resourceLogs [{:resource
                                   {:attributes
                                    [{:key "service.name", :value {:stringValue "Aidbox"}}
                                     #_{:key "service.runtime-id", :value {:stringValue "<runtime-id>"}}]}
                                   :scopeLogs
-                                  [{:scope {}
+                                  [{:scope      {}
                                     :logRecords [(->otel-format l)]}]}]}
            post-params {:headers {"content-type" "application/json"}}]
        (try
-         (let [resp @(http/post (str (:url cfg) "/v1/logs") (assoc post-params :body (json/generate-string batch)))]
-           resp)
+         @(http/post (:url cfg) (assoc post-params :body (json/generate-string batch)))
          (catch Exception e
            (println "ERROR:" e)))))))
 
