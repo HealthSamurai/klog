@@ -227,7 +227,7 @@
         severity (str/upper-case (name (:lvl l :info)))
         severity-number (get {"TRACE" 1 "DEBUG" 5 "INFO" 9 "WARN" 13 "ERROR" 17 "FATAL" 21} severity)
         log-body (cond-> (dissoc l :ev :lvl :timeUnix :ts :ctx)
-                   (= :error severity)
+                   (= "ERROR" severity)
                    (dissoc :msg :ex/type :etr))]
     (cond-> {:timeUnixNano ts-nano
              :observedTimeUnixNano ts-nano
@@ -249,7 +249,7 @@
                     {:key "event.domain" :value {:stringValue (or (:ev/domain l) "aidbox")}}
 
                     ;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/exceptions/
-                    (when (and (= :error severity) (:msg l))
+                    (when (and (= "ERROR" severity) (:msg l))
                       {:key "exception.message" :value {:stringValue (:msg l)}})
                     (when (:etr l)
                       {:key "exception.stacktrace" :value {:stringValue (:etr l)}})
