@@ -21,7 +21,9 @@
       DateTimeFormatter)
     (java.util
       Date
-      TimeZone))
+      TimeZone)
+    (java.net
+     InetAddress))
   (:refer-clojure :exclude [flush]))
 
 ;; (set! *warn-on-reflection* true)
@@ -259,6 +261,13 @@
       trace-id
       (assoc :traceId trace-id))))
 
+(defn get-host-name []
+  (try
+    (let [local-host (InetAddress/getLocalHost)]
+      (str (.getHostName local-host)))
+    (catch java.net.UnknownHostException e
+      (println (format "Can't get host name: %s" (.getMessage e)))
+      "?")))
 
 (defn add-otel-appender [cfg]
   (add-appender
@@ -268,7 +277,11 @@
      (let [batch {:resourceLogs [{:resource
                                   {:attributes
                                    [{:key "service.name", :value {:stringValue "Aidbox"}}
-                                    #_{:key "service.runtime-id", :value {:stringValue "<runtime-id>"}}]}
+                                    #_{:key "service.runtime-id", :value {:stringValue "<runtime-id>"}}
+                                    {:key "host.name" :value {:stringValue (get-host-name)}}
+                                    ;; telemetry.sdk.language and telemetry.sdk.name attrs are required for Elastic APM metrics UI
+                                    {:key "telemetry.sdk.language" :value {:stringValue "java"}}
+                                    {:key "telemetry.sdk.name" :value {:stringValue "opentelemetry"}}]}
                                   :scopeLogs
                                   [{:scope      {}
                                     :logRecords [(->otel-format l)]}]}]}
