@@ -559,19 +559,33 @@
         (try
           (let [start (System/currentTimeMillis)
                 cb (fn [res]
-                     (if-let [err (:error res)]
-                       (let [err-msg (.getMessage err)]
-                         (println ::es-batch-error err-msg)
-                         (swap! *state assoc :error err-msg))
-                       (if-let [s (:status res)]
-                         (if (> s 300)
+                     (let [body (try
+                                  (json/parse-string (:body res) true)
+                                  (catch Exception _ nil))]
+                       (cond
+                         (:errors body)
+                         (let [errors
+                               (->> (:items body)
+                                    (keep #(get-in % [:create :error :reason]))
+                                    (str/join "\n"))]
                            (do
-                             (println ::es-batch-error s (:body res))
-                             (swap! *state assoc :error res))
-                           (let [status {:msgs i :d (- (System/currentTimeMillis) start)}]
-                             (swap! *state (fn [x] (-> x (dissoc :error) (assoc :status status))))
-                             (println (str ::es-batch-sent " " status))))
-                         (println ::es-batch-unexpected res))))]
+                             (println ::es-batch-error errors)
+                             (swap! *state assoc :error errors)))
+
+                         :else
+                         (if-let [err (:error res)]
+                           (let [err-msg (.getMessage err)]
+                             (println ::es-batch-error err-msg)
+                             (swap! *state assoc :error err-msg))
+                           (if-let [s (:status res)]
+                             (if (> s 300)
+                               (do
+                                 (println ::es-batch-error s (:body res))
+                                 (swap! *state assoc :error res))
+                               (let [status {:msgs i :d (- (System/currentTimeMillis) start)}]
+                                 (swap! *state (fn [x] (-> x (dissoc :error) (assoc :status status))))
+                                 (println (str ::es-batch-sent " " status))))
+                             (println ::es-batch-unexpected res))))))]
             (cb @(http/post url (assoc post-params :body (.toString b)))))
           (catch Exception e
             (println ::es-batch-error (.getMessage e))))
