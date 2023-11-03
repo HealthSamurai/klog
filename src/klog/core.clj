@@ -21,9 +21,7 @@
       DateTimeFormatter)
     (java.util
       Date
-      TimeZone)
-    (java.net
-     InetAddress))
+      TimeZone))
   (:refer-clojure :exclude [flush]))
 
 ;; (set! *warn-on-reflection* true)
@@ -211,86 +209,6 @@
 
 (defn stdout-appender [& [lvl]]
   (add-appender :stdout (or lvl :all) (fn [l] (println (cheshire.core/generate-string l)))))
-
-
-(defn obj->proto3 [o]
-  (cond
-    (or (keyword? o) (string? o)) {:stringValue (name o)}
-    (int? o) {:intValue o}
-    (float? o) {:doubleValue o}
-    (boolean? o) {:boolValue o}
-    (map? o) {:kvlistValue {:values (mapv (fn [[k v]] {:key (name k) :value (obj->proto3 v)}) o)}}
-    (coll? o) {:arrayValue {:values (mapv obj->proto3 o)}}
-    :else {:stringValue (str o)}))
-
-(defn ->otel-format [l]
-  (let [ts-nano (* (:timeUnix l) 1000 1000)
-        trace-id (get l :ctx)
-        severity (str/upper-case (name (:lvl l :info)))
-        severity-number (get {"TRACE" 1 "DEBUG" 5 "INFO" 9 "WARN" 13 "ERROR" 17 "FATAL" 21} severity)
-        log-body (cond-> (dissoc l :ev :lvl :timeUnix :ts :ctx)
-                   (= "ERROR" severity)
-                   (dissoc :msg :ex/type :etr))]
-    (cond-> {:timeUnixNano ts-nano
-             :observedTimeUnixNano ts-nano
-             :severityText (when (some? severity-number) severity)
-             :severityNumber severity-number
-             ;; :spanId "EEE19B7EC3C1B174",
-
-             :body (obj->proto3 log-body)
-
-             ;; :resource nil
-
-             :attributes
-             (keep identity
-                   [ ;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/general/
-                    (when (:ev/id l) {:key "log.record.uid" :value {:stringValue (:ev/id l)}})
-
-                    ;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/events/
-                    (when (:ev l) {:key "event.name" :value {:stringValue (name (:ev l))}})
-                    {:key "event.domain" :value {:stringValue (or (:ev/domain l) "aidbox")}}
-
-                    ;; See https://opentelemetry.io/docs/specs/otel/logs/semantic_conventions/exceptions/
-                    (when (and (= "ERROR" severity) (:msg l))
-                      {:key "exception.message" :value {:stringValue (:msg l)}})
-                    (when (:etr l)
-                      {:key "exception.stacktrace" :value {:stringValue (:etr l)}})
-                    (when (:ex/type l)
-                      {:key "exception.type" :value {:stringValue (:ex/type l)}})])}
-
-      trace-id
-      (assoc :traceId trace-id))))
-
-(defn get-host-name []
-  (try
-    (let [local-host (InetAddress/getLocalHost)]
-      (str (.getHostName local-host)))
-    (catch java.net.UnknownHostException e
-      (println (format "Can't get host name: %s" (.getMessage e)))
-      "?")))
-
-(defn add-otel-appender [cfg]
-  (add-appender
-   :otel
-   :all
-   (fn [l]
-     (let [batch {:resourceLogs [{:resource
-                                  {:attributes
-                                   [{:key "service.name", :value {:stringValue "Aidbox"}}
-                                    #_{:key "service.runtime-id", :value {:stringValue "<runtime-id>"}}
-                                    {:key "host.name" :value {:stringValue (get-host-name)}}
-                                    ;; telemetry.sdk.language and telemetry.sdk.name attrs are required for Elastic APM metrics UI
-                                    {:key "telemetry.sdk.language" :value {:stringValue "java"}}
-                                    {:key "telemetry.sdk.name" :value {:stringValue "opentelemetry"}}]}
-                                  :scopeLogs
-                                  [{:scope      {}
-                                    :logRecords [(->otel-format l)]}]}]}
-           post-params {:headers {"content-type" "application/json"}}]
-       (try
-         @(http/post (:url cfg) (assoc post-params :body (json/generate-string batch)))
-         (catch Exception e
-           (println "ERROR:" e)))))))
-
 
 (defn green  [x] (str "\033[0;32m" x "\033[0m"))
 (defn gray   [x] (str "\033[0;37m" x "\033[0m"))
