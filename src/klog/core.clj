@@ -387,8 +387,8 @@
     nil))
 
 (defn log-ex [e]
-  (let [stacktrace (with-out-str (stacktrace/print-stack-trace e))]
-    (log :w/ex (cond-> {:msg stacktrace :lvl :error} stacktrace (assoc :etr stacktrace)))))
+  (let [cause-trace (with-out-str (stacktrace/print-cause-trace e))]
+    (log :w/ex (cond-> {:msg cause-trace :lvl :error} cause-trace (assoc :etr cause-trace)))))
 
 (set-error-handler!
   publisher
