@@ -85,6 +85,13 @@
 (defn set-tn [v] (.set ^ThreadLocal -tn v))
 (defn clear-tn [] (.set ^ThreadLocal -tn nil))
 
+(defn source-line []
+  (let [stacktrace (.getStackTrace (Thread/currentThread))
+        stacktrace-element (first (drop-while #(str/starts-with? (.getClassName %) "klog.core") (rest stacktrace)))
+        ns-name (str/replace (.getClassName stacktrace-element) #"\$.+" "")]
+    {:st/ns ns-name
+     :st/fn (.getMethodName stacktrace-element)
+     :st/line (.getLineNumber stacktrace-element)}))
 
 (defn mk-log
   [ev arg]
@@ -95,13 +102,16 @@
         op  (.get ^ThreadLocal -op)
         ctx     (get-ctx)
         context (get-context)
-        log (cond-> (assoc arg :timeUnix timeUnix :ts i :w w :ev ev)
-              tn  (assoc :tn tn)
-              ctx (assoc :ctx ctx)
-              op  (assoc :op op)
-              context (merge context))]
+        log (-> arg
+                (assoc :timeUnix timeUnix :ts i :w w :ev ev)
+                (update :lvl #(or % :info))
+                (merge (source-line))
+                (cond->
+                  tn  (assoc :tn tn)
+                  ctx (assoc :ctx ctx)
+                  op  (assoc :op op)
+                  context (merge context)))]
     log))
-
 
 (defonce appenders (atom {}))
 
@@ -275,8 +285,11 @@
                     (red (:msg l))
                     (red (:etr l)))
 
-              :else (conj s (yellow (str (:ev l))) (dissoc l :tn :ts :ev :w :lvl :error)))]
-      (str/join  " " s))
+              :else (conj s
+                          (when-not (= :log (:ev l)) (yellow (str (:ev l))))
+                          (white (:msg l))
+                          (dissoc l :msg :tn :ts :ev :w :lvl :error)))]
+      (str/join  " " (remove nil? s)))
     (catch Exception e
       (println "UPS EX IN LOGS: " e))))
 
