@@ -568,7 +568,7 @@
   - `:lvl`: Appender log level, higher level -- higher verbosity
   - `:dd-auth`: Datadog API Key
   - `:dd-tags`: Datadog tags
-  - `:dd-site`: The regional site for a Datadog customer. (This can only be one of datadoghq.com,us3.datadoghq.com,datadoghq.eu,ddog-gov.com) 
+  - `:dd-site`: The regional site for a Datadog customer. (This can only be one of datadoghq.com,us3.datadoghq.com,datadoghq.eu,ddog-gov.com)
   - `:appender-id`: Appender name
   - `:batch-size`: how many log entries to collect before uploading
   - `:batch-timeout`: how long to wait before uploading
@@ -598,9 +598,10 @@
         log-fallback  (if fallback-file (comp (partial save-to-file fallback-file) str) (comp println str/trim-newline str))]
     (letfn [(mk-log-entry
               [m]
-              {:message (json/generate-string m)
-               :ddsource "aidbox"
-               :ddtags dd-tags})
+              (json/generate-string
+                {:message m
+                 :ddsource "aidbox"
+                 :ddtags dd-tags}))
             (log-error
               [batch l errs]
               (->> (for [{:keys [error status]} errs]
