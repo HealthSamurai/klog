@@ -489,7 +489,7 @@
              {post-params :post url :url :as cfg} :cfg} @*state]
         (try
           (let [start (System/currentTimeMillis)
-                cb (fn [res]
+                flush-log* (fn [res]
                      (let [body (try
                                   (json/parse-string (:body res) true)
                                   (catch Exception _ nil))]
@@ -499,9 +499,8 @@
                                (->> (:items body)
                                     (keep #(get-in % [:create :error :reason]))
                                     (str/join "\n"))]
-                           (do
-                             (println ::es-batch-error errors)
-                             (swap! *state assoc :error errors)))
+                           (println ::es-batch-error errors)
+                           (swap! *state assoc :error errors))
 
                          :else
                          (if-let [err (:error res)]
@@ -517,7 +516,11 @@
                                  (swap! *state (fn [x] (-> x (dissoc :error) (assoc :status status))))
                                  (println (str ::es-batch-sent " " status))))
                              (println ::es-batch-unexpected res))))))]
-            (cb @(http/post url (assoc post-params :body (.toString b)))))
+            (http/post
+              url
+              (assoc post-params :body (.toString b))
+              (fn sync-callback [res]
+                (flush-log* res))))
           (catch Exception e
             (println ::es-batch-error (.getMessage e))))
         (reset! *state (es-default-state cfg))
