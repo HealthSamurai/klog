@@ -220,12 +220,12 @@
 (defn stdout-appender [& [lvl]]
   (add-appender :stdout (or lvl :all) (fn [l] (println (cheshire.core/generate-string l)))))
 
-(defn green  [x] (str "\033[0;32m" x "\033[0m"))
-(defn gray   [x] (str "\033[0;37m" x "\033[0m"))
-(defn yellow [x] (str "\033[0;33m" x "\033[0m"))
-(defn white  [x] (str "\033[0;97m" x "\033[0m"))
-(defn cyan   [x] (str "\033[0;36m" x "\033[0m"))
-(defn red    [x] (str "\033[0;31m" x "\033[0m"))
+(defn green      [x] (str "\033[0;32m" x "\033[m"))
+(defn gray       [x] (str "\033[0;37m" x "\033[m"))
+(defn yellow     [x] (str "\033[0;33m" x "\033[m"))
+(defn foreground [x] (str "\033[m" x "\033[m"))
+(defn cyan       [x] (str "\033[0;36m" x "\033[m"))
+(defn red        [x] (str "\033[0;31m" x "\033[m"))
 
 
 (defn format-line
@@ -248,31 +248,31 @@
               (= :w/req (:ev l))
               (conj s (yellow (str/upper-case (name (or (:w_m l) "get"))))
                     (if-let [qs (:w_qs l)]
-                      (str (white (:w_url l)) "?" qs)
-                      (white (:w_url l))))
+                      (str (foreground (:w_url l)) "?" qs)
+                      (foreground (:w_url l))))
 
               (= :w/resp (:ev l))
               (conj s (yellow (:w_st l)))
 
               (= :auth/authorized-access-policy (:ev l))
               (conj s
-                    (white "policy")
+                    (foreground "policy")
                     (green (when-let [id (:access-policy-id l)]
                              (name id))))
 
               (= :resource/create (:ev l))
               (conj s
-                    (white "create")
+                    (foreground "create")
                     (green (str (:rtp l) "/" (:rid l))))
 
               (= :resource/update (:ev l))
               (conj s
-                    (white "update")
+                    (foreground "update")
                     (green (str (:rtp l) "/" (:rid l))))
 
               (= :resource/delete (:ev l))
               (conj s
-                    (white "delete")
+                    (foreground "delete")
                     (green (str (:rtp l) "/" (:rid l))))
 
               (or (= :db/q (:ev l))
@@ -287,7 +287,7 @@
 
               :else (conj s
                           (when-not (= :log (:ev l)) (yellow (str (:ev l))))
-                          (white (:msg l))
+                          (foreground (:msg l))
                           (dissoc l :msg :tn :ts :ev :w :lvl :error)))]
       (str/join  " " (remove nil? s)))
     (catch Exception e
