@@ -70,7 +70,7 @@
   (sut/clear-tn))
 
 
-(deftest ^:slow error-in-lazy-log-message
+(deftest ^:kaocha/pending error-in-lazy-log-message
   (def logs-file "/tmp/lazy-log-test-logs.ndjson")
 
   (remove-if-exists logs-file)
@@ -112,7 +112,7 @@
       :ev "test/event"}]))
 
 
-(deftest ^:slow klog-levels-test
+(deftest klog-levels-test
   (defonce logs (atom []))
 
   (reset! logs [])

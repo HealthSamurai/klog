@@ -38,6 +38,7 @@
   (str (.format ^SimpleDateFormat fmt x)))
 
 (defonce ^:dynamic *enable* (if (System/getenv "KLOG_DISABLE") false true))
+(def source-line-enabled? (if (System/getenv "KLOG_SOURCE_LINE_ENABLED") true false))
 
 (defn enable-log  [] (alter-var-root #'*enable* (constantly true)))
 (defn disable-log [] (alter-var-root #'*enable* (constantly false)))
@@ -105,12 +106,12 @@
         log (-> arg
                 (assoc :timeUnix timeUnix :ts i :w w :ev ev)
                 (update :lvl #(or % :info))
-                (merge (source-line))
                 (cond->
-                  tn  (assoc :tn tn)
-                  ctx (assoc :ctx ctx)
-                  op  (assoc :op op)
-                  context (merge context)))]
+                    source-line-enabled? (merge (source-line))
+                    tn  (assoc :tn tn)
+                    ctx (assoc :ctx ctx)
+                    op  (assoc :op op)
+                    context (merge context)))]
     log))
 
 (defonce appenders (atom {}))
