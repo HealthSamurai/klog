@@ -329,3 +329,19 @@
                     :remoteIp "172.10.192.3"
                     :referer "10.70.1.2"
                     :latency "1.5s"}}]))
+
+(deftest format-date-thread-safety-test
+  ;; distinct dates per thread: the corruption needs calendar fields to
+  ;; diverge; identical dates race invisibly
+  (let [dates (mapv #(java.util.Date. (+ 1600000000000 (* ^long % 987654321))) (range 16))
+        expected (mapv sut/format-date dates)
+        bad (atom 0)
+        futs (mapv (fn [i] (future
+                             (dotimes [_ 500]
+                               (try
+                                 (when-not (= (expected i) (sut/format-date (dates i)))
+                                   (swap! bad inc))
+                                 (catch Throwable _ (swap! bad inc))))))
+                   (range 16))]
+    (run! deref futs)
+    (is (zero? @bad) "shared SimpleDateFormat garbles or throws under concurrent format")))
