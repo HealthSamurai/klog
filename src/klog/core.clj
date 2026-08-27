@@ -27,15 +27,19 @@
 ;; (set! *warn-on-reflection* true)
 
 (def fmt
-  (let [tz (TimeZone/getTimeZone "UTC")
-        df (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")]
-    (.setTimeZone df tz)
-    df))
+  ;; SimpleDateFormat is not thread-safe
+  (ThreadLocal/withInitial
+   (reify java.util.function.Supplier
+     (get [_]
+       (let [tz (TimeZone/getTimeZone "UTC")
+             df (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")]
+         (.setTimeZone df tz)
+         df)))))
 
 
 (defn format-date
   [^Date x]
-  (str (.format ^SimpleDateFormat fmt x)))
+  (str (.format ^SimpleDateFormat (.get ^ThreadLocal fmt) x)))
 
 (defonce ^:dynamic *enable* (if (System/getenv "KLOG_DISABLE") false true))
 (def source-line-enabled? (if (System/getenv "KLOG_SOURCE_LINE_ENABLED") true false))
