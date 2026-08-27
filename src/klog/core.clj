@@ -398,10 +398,40 @@
 
   )
 
+(defonce enrichers (atom {}))
+(defonce ^:private enrichers-warned (atom #{}))
+
+(defn add-enricher!
+  "Applies f to every log map on the emitting thread, before publish.
+   Replaces a previous f under the same id; throw/non-map return = skipped."
+  [id f]
+  (swap! enrichers-warned disj id)
+  (swap! enrichers assoc id f)
+  nil)
+
+(defn rm-enricher!
+  [id]
+  (swap! enrichers dissoc id)
+  nil)
+
+(defn- enrich
+  [l]
+  (reduce-kv (fn [l id f]
+               ;; println, not log: logging from inside enrich re-enters the chain
+               (let [l' (try (f l)
+                             (catch Exception e
+                               (when-not (@enrichers-warned id)
+                                 (swap! enrichers-warned conj id)
+                                 (println :klog/enricher-failed id (.getMessage e)))
+                               nil))]
+                 (if (map? l') l' l)))
+             l
+             @enrichers))
+
 (defn log
   [ev arg]
   (when *enable*
-    (send-off publisher emit (mk-log ev arg))
+    (send-off publisher emit (enrich (mk-log ev arg)))
     nil))
 
 (defn log-ex [e]

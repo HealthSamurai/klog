@@ -345,3 +345,33 @@
                    (range 16))]
     (run! deref futs)
     (is (zero? @bad) "shared SimpleDateFormat garbles or throws under concurrent format")))
+
+(def ^ThreadLocal call-site-only (ThreadLocal.))
+
+(deftest enrichers-test
+  ;; a raw ThreadLocal is NOT conveyed by send-off (dynamic bindings are),
+  ;; so it only reaches the log map if enrichment runs on the emitting thread
+  (let [seen (atom [])]
+    (sut/add-appender :cap (fn [l] (swap! seen conj l)))
+    (try
+      (testing "enrichers run on the emitting thread — the point of the hook"
+        (sut/add-enricher! ::ids #(assoc % :dd {:trace_id (.get call-site-only)}))
+        (.set call-site-only "t-1")
+        (sut/log :enricher/hit {:a 1})
+        (sut/flush)
+        (is (= {:trace_id "t-1"} (:dd (last @seen)))
+            "nil here means enrichment moved across the send-off"))
+      (testing "a throwing or non-map-returning enricher is skipped; the log still ships"
+        (sut/add-enricher! ::boom (fn [_] (throw (ex-info "boom" {}))))
+        (sut/add-enricher! ::nilly (constantly nil))
+        (.set call-site-only "t-2")
+        (let [warn (with-out-str (sut/log :enricher/survives {:a 2}))]
+          (sut/flush)
+          (is (= :enricher/survives (:ev (last @seen))))
+          (is (= {:trace_id "t-2"} (:dd (last @seen))) "other enrichers still apply")
+          (is (str/includes? warn "enricher-failed") "the failure is not silent")
+          (is (= "" (with-out-str (sut/log :enricher/again {:a 3}))) "warned once per id")))
+      (finally
+        (.remove call-site-only)
+        (doseq [id [::ids ::boom ::nilly]] (sut/rm-enricher! id))
+        (sut/rm-appender :cap)))))
